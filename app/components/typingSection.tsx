@@ -10,6 +10,8 @@ const TypingSection = ({ text, onComplete }: TypingSectionProps) => {
     const [currentIndex, setCurrentIndex] = useState(0);
     const [typedChars, setTypedChars] = useState<{ char: string; correct: boolean }[]>([]);
     const [isComplete, setIsComplete] = useState(false);
+    const [startTime, setStartTime] = useState<number | null>(null);
+    const [endTime, setEndTime] = useState<number | null>(null);
     const containerRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
@@ -21,10 +23,33 @@ const TypingSection = ({ text, onComplete }: TypingSectionProps) => {
         setCurrentIndex(0);
         setTypedChars([]);
         setIsComplete(false);
+        setStartTime(null);
+        setEndTime(null);
+    };
+
+    const calculateMetrics = () => {
+        if (!startTime || !endTime) return { wpm: 0, accuracy: 0 };
+        
+        const timeInMinutes = (endTime - startTime) / 60000; // Convert to minutes
+        const totalChars = typedChars.length;
+        const correctChars = typedChars.filter(char => char.correct).length;
+        
+        // Calculate WPM (assuming average word length of 5 characters)
+        const wpm = Math.round((totalChars / 5) / timeInMinutes);
+        
+        // Calculate accuracy
+        const accuracy = Math.round((correctChars / totalChars) * 100);
+        
+        return { wpm, accuracy };
     };
 
     const handleKeyDown = (e: React.KeyboardEvent) => {
         if (isComplete) return;
+
+        // Start timing on first keypress
+        if (!startTime) {
+            setStartTime(Date.now());
+        }
 
         const currentChar = text[currentIndex];
         const typedChar = e.key;
@@ -37,6 +62,7 @@ const TypingSection = ({ text, onComplete }: TypingSectionProps) => {
             // Check if we've completed the text
             if (currentIndex === text.length - 1) {
                 setIsComplete(true);
+                setEndTime(Date.now());
                 onComplete?.();
             }
         } else {
@@ -56,6 +82,7 @@ const TypingSection = ({ text, onComplete }: TypingSectionProps) => {
     // Split text into words while preserving spaces
     const words = text.split(/(\s+)/);
     let currentCharIndex = 0;
+    const { wpm, accuracy } = calculateMetrics();
 
     return (
         <div 
@@ -86,22 +113,6 @@ const TypingSection = ({ text, onComplete }: TypingSectionProps) => {
                                 const isSpace = char === ' ';
                                 const isLastChar = charIndex === word.length - 1;
 
-                                // const charElement = (
-                                //     <span
-                                //         key={charIndex}
-                                //         className={`
-                                //             inline-block relative
-                                //             ${isSpace ? 'w-[1.2ch]' : 'w-[1ch]'}
-                                //             ${isTyped ? 'text-gray-600' : ''}
-                                //             ${!isCorrect ? 'text-red-500' : ''}
-                                //             ${isCurrentChar ? 'before:absolute before:left-0 before:top-0 before:w-full before:h-full before:border-l-2 before:border-black before:animate-pulse before:transition-[transform,opacity] before:duration-500 before:ease-[cubic-bezier(0.25, 1, 0.5, 1)] before:transform before:translate-x-0 before:scale-y-100 hover:before:translate-x-[0.5px] hover:before:scale-y-105' : ''}
-                                //             ${!isLastChar ? 'mr-[0.1ch]' : ''}
-                                //         `}
-                                //     >
-                                //         {isSpace ? '\u00A0' : char}
-                                //     </span>
-                                // );
-
                                 const charElement = (
                                     <span
                                         key={charIndex}
@@ -125,13 +136,35 @@ const TypingSection = ({ text, onComplete }: TypingSectionProps) => {
                                     </span>
                                 );
 
-
                                 currentCharIndex++;
                                 return charElement;
                             })}
                         </span>
                     ))}
                 </div>
+                {isComplete && (
+                    <div className="mt-8 text-center space-y-4">
+                        <div className="text-2xl font-semibold text-gray-800">
+                            Typing Results
+                        </div>
+                        <div className="flex justify-center space-x-8">
+                            <div className="text-xl">
+                                <span className="text-gray-600">WPM:</span>
+                                <span className="ml-2 font-mono text-2xl">{wpm}</span>
+                            </div>
+                            <div className="text-xl">
+                                <span className="text-gray-600">Accuracy:</span>
+                                <span className="ml-2 font-mono text-2xl">{accuracy}%</span>
+                            </div>
+                        </div>
+                        <button
+                            onClick={resetLevel}
+                            className="mt-4 px-4 py-2 bg-gray-800 text-white rounded hover:bg-gray-700 transition-colors"
+                        >
+                            Try Again
+                        </button>
+                    </div>
+                )}
             </div>
         </div>
     );
